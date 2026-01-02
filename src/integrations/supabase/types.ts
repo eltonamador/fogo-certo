@@ -18,7 +18,7 @@ export type Database = {
         Row: {
           anexos: string[] | null
           created_at: string | null
-          data_hora: string
+          data_hora_inicio: string
           descricao: string | null
           disciplina_id: string
           duracao_minutos: number | null
@@ -26,13 +26,14 @@ export type Database = {
           instrutor_id: string
           local: string | null
           objetivo: string | null
+          tipo: Database["public"]["Enums"]["tipo_aula"]
           titulo: string
           updated_at: string | null
         }
         Insert: {
           anexos?: string[] | null
           created_at?: string | null
-          data_hora: string
+          data_hora_inicio: string
           descricao?: string | null
           disciplina_id: string
           duracao_minutos?: number | null
@@ -40,13 +41,14 @@ export type Database = {
           instrutor_id: string
           local?: string | null
           objetivo?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_aula"]
           titulo: string
           updated_at?: string | null
         }
         Update: {
           anexos?: string[] | null
           created_at?: string | null
-          data_hora?: string
+          data_hora_inicio?: string
           descricao?: string | null
           disciplina_id?: string
           duracao_minutos?: number | null
@@ -54,6 +56,7 @@ export type Database = {
           instrutor_id?: string
           local?: string | null
           objetivo?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_aula"]
           titulo?: string
           updated_at?: string | null
         }
@@ -77,6 +80,8 @@ export type Database = {
           id: string
           instrutor_id: string
           nota_maxima: number | null
+          peso: number
+          tempo_min: number
           titulo: string
           updated_at: string | null
         }
@@ -89,6 +94,8 @@ export type Database = {
           id?: string
           instrutor_id: string
           nota_maxima?: number | null
+          peso?: number
+          tempo_min?: number
           titulo: string
           updated_at?: string | null
         }
@@ -101,6 +108,8 @@ export type Database = {
           id?: string
           instrutor_id?: string
           nota_maxima?: number | null
+          peso?: number
+          tempo_min?: number
           titulo?: string
           updated_at?: string | null
         }
@@ -123,6 +132,8 @@ export type Database = {
           fixado: boolean | null
           id: string
           pelotao_id: string | null
+          prioridade: Database["public"]["Enums"]["prioridade_aviso"]
+          publico: Database["public"]["Enums"]["publico_aviso"]
           titulo: string
           updated_at: string | null
         }
@@ -134,6 +145,8 @@ export type Database = {
           fixado?: boolean | null
           id?: string
           pelotao_id?: string | null
+          prioridade?: Database["public"]["Enums"]["prioridade_aviso"]
+          publico?: Database["public"]["Enums"]["publico_aviso"]
           titulo: string
           updated_at?: string | null
         }
@@ -145,6 +158,8 @@ export type Database = {
           fixado?: boolean | null
           id?: string
           pelotao_id?: string | null
+          prioridade?: Database["public"]["Enums"]["prioridade_aviso"]
+          publico?: Database["public"]["Enums"]["publico_aviso"]
           titulo?: string
           updated_at?: string | null
         }
@@ -173,6 +188,7 @@ export type Database = {
           descricao: string | null
           id: string
           nome: string
+          turma_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -182,6 +198,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome: string
+          turma_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -191,9 +208,18 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome?: string
+          turma_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "disciplinas_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "turmas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       entregas: {
         Row: {
@@ -298,6 +324,7 @@ export type Database = {
           id: string
           nome: string
           turma: string
+          turma_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -305,6 +332,7 @@ export type Database = {
           id?: string
           nome: string
           turma: string
+          turma_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -312,9 +340,18 @@ export type Database = {
           id?: string
           nome?: string
           turma?: string
+          turma_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pelotoes_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "turmas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       presencas: {
         Row: {
@@ -363,6 +400,7 @@ export type Database = {
           matricula: string | null
           nome: string
           pelotao_id: string | null
+          status: Database["public"]["Enums"]["status_usuario"]
           telefone: string | null
           updated_at: string | null
         }
@@ -374,6 +412,7 @@ export type Database = {
           matricula?: string | null
           nome: string
           pelotao_id?: string | null
+          status?: Database["public"]["Enums"]["status_usuario"]
           telefone?: string | null
           updated_at?: string | null
         }
@@ -385,6 +424,7 @@ export type Database = {
           matricula?: string | null
           nome?: string
           pelotao_id?: string | null
+          status?: Database["public"]["Enums"]["status_usuario"]
           telefone?: string | null
           updated_at?: string | null
         }
@@ -400,9 +440,14 @@ export type Database = {
       }
       questoes: {
         Row: {
+          alternativa_a: string | null
+          alternativa_b: string | null
+          alternativa_c: string | null
+          alternativa_d: string | null
           alternativas: Json
           avaliacao_id: string
           correta: number
+          correta_letra: string | null
           created_at: string | null
           enunciado: string
           id: string
@@ -410,9 +455,14 @@ export type Database = {
           peso: number | null
         }
         Insert: {
+          alternativa_a?: string | null
+          alternativa_b?: string | null
+          alternativa_c?: string | null
+          alternativa_d?: string | null
           alternativas: Json
           avaliacao_id: string
           correta: number
+          correta_letra?: string | null
           created_at?: string | null
           enunciado: string
           id?: string
@@ -420,9 +470,14 @@ export type Database = {
           peso?: number | null
         }
         Update: {
+          alternativa_a?: string | null
+          alternativa_b?: string | null
+          alternativa_c?: string | null
+          alternativa_d?: string | null
           alternativas?: Json
           avaliacao_id?: string
           correta?: number
+          correta_letra?: string | null
           created_at?: string | null
           enunciado?: string
           id?: string
@@ -484,6 +539,7 @@ export type Database = {
           descricao: string | null
           disciplina_id: string
           id: string
+          instrucoes: string | null
           instrutor_id: string
           prazo: string
           titulo: string
@@ -495,6 +551,7 @@ export type Database = {
           descricao?: string | null
           disciplina_id: string
           id?: string
+          instrucoes?: string | null
           instrutor_id: string
           prazo: string
           titulo: string
@@ -506,6 +563,7 @@ export type Database = {
           descricao?: string | null
           disciplina_id?: string
           id?: string
+          instrucoes?: string | null
           instrutor_id?: string
           prazo?: string
           titulo?: string
@@ -520,6 +578,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      turmas: {
+        Row: {
+          ano: number
+          created_at: string | null
+          data_fim: string
+          data_inicio: string
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ano: number
+          created_at?: string | null
+          data_fim: string
+          data_inicio: string
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ano?: number
+          created_at?: string | null
+          data_fim?: string
+          data_inicio?: string
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -558,8 +646,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "instrutor" | "aluno"
+      prioridade_aviso: "normal" | "urgente"
+      publico_aviso: "geral" | "pelotao" | "disciplina"
       status_entrega: "pendente" | "entregue" | "avaliado" | "atrasado"
       status_presenca: "presente" | "ausente" | "justificado"
+      status_usuario: "ativo" | "inativo"
+      tipo_aula: "aula" | "simulado" | "avaliacao"
       tipo_material: "pdf" | "video" | "link" | "documento"
     }
     CompositeTypes: {
@@ -689,8 +781,12 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "instrutor", "aluno"],
+      prioridade_aviso: ["normal", "urgente"],
+      publico_aviso: ["geral", "pelotao", "disciplina"],
       status_entrega: ["pendente", "entregue", "avaliado", "atrasado"],
       status_presenca: ["presente", "ausente", "justificado"],
+      status_usuario: ["ativo", "inativo"],
+      tipo_aula: ["aula", "simulado", "avaliacao"],
       tipo_material: ["pdf", "video", "link", "documento"],
     },
   },
