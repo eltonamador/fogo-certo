@@ -629,7 +629,53 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      questoes_aluno: {
+        Row: {
+          alternativa_a: string | null
+          alternativa_b: string | null
+          alternativa_c: string | null
+          alternativa_d: string | null
+          avaliacao_id: string | null
+          created_at: string | null
+          enunciado: string | null
+          id: string | null
+          ordem: number | null
+          peso: number | null
+        }
+        Insert: {
+          alternativa_a?: string | null
+          alternativa_b?: string | null
+          alternativa_c?: string | null
+          alternativa_d?: string | null
+          avaliacao_id?: string | null
+          created_at?: string | null
+          enunciado?: string | null
+          id?: string | null
+          ordem?: number | null
+          peso?: number | null
+        }
+        Update: {
+          alternativa_a?: string | null
+          alternativa_b?: string | null
+          alternativa_c?: string | null
+          alternativa_d?: string | null
+          avaliacao_id?: string | null
+          created_at?: string | null
+          enunciado?: string | null
+          id?: string | null
+          ordem?: number | null
+          peso?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questoes_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_user_role: {
