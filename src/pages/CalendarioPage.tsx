@@ -63,7 +63,7 @@ export default function CalendarioPage() {
     ...(aulas?.map(aula => ({
       id: aula.id,
       titulo: aula.titulo,
-      data: new Date(aula.data_hora),
+      data: new Date(aula.data_hora_inicio),
       tipo: 'aula' as EventType,
       cor: aula.disciplina?.cor || '#1e3a5f',
       detalhes: aula.local || undefined,

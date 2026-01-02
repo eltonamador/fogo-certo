@@ -18,8 +18,11 @@ import AvaliacoesPage from "./pages/AvaliacoesPage";
 import TarefasPage from "./pages/TarefasPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import ConfiguracoesPage from "./pages/ConfiguracoesPage";
+import MinhaSituacaoPage from "./pages/MinhaSituacaoPage";
+import ChamadaPage from "./pages/ChamadaPage";
 import AdminUsuariosPage from "./pages/admin/UsuariosPage";
 import AdminPelotoesPage from "./pages/admin/PelotoesPage";
+import AdminTurmasPage from "./pages/admin/TurmasPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,8 +51,11 @@ const App = () => (
               <Route path="/tarefas" element={<TarefasPage />} />
               <Route path="/relatorios" element={<RelatoriosPage />} />
               <Route path="/configuracoes" element={<ConfiguracoesPage />} />
+              <Route path="/minha-situacao" element={<MinhaSituacaoPage />} />
+              <Route path="/chamada" element={<ChamadaPage />} />
               <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
               <Route path="/admin/pelotoes" element={<AdminPelotoesPage />} />
+              <Route path="/admin/turmas" element={<AdminTurmasPage />} />
             </Route>
 
             {/* Catch-all */}

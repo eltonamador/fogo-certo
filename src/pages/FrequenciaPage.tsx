@@ -197,8 +197,8 @@ export default function FrequenciaPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {presenca.aula?.data_hora 
-                              ? format(new Date(presenca.aula.data_hora), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                            {presenca.aula?.data_hora_inicio 
+                              ? format(new Date(presenca.aula.data_hora_inicio), "dd/MM/yyyy HH:mm", { locale: ptBR })
                               : '-'}
                           </div>
                         </TableCell>
