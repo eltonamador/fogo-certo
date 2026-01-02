@@ -39,9 +39,12 @@ const allNavItems: NavItem[] = [
   { title: 'Frequência', href: '/frequencia', icon: ClipboardCheck },
   { title: 'Avaliações', href: '/avaliacoes', icon: FileQuestion },
   { title: 'Tarefas', href: '/tarefas', icon: ListTodo },
+  { title: 'Minha Situação', href: '/minha-situacao', icon: BarChart3, roles: ['aluno'] },
+  { title: 'Chamada', href: '/chamada', icon: ClipboardCheck, roles: ['admin', 'instrutor'] },
   { title: 'Relatórios', href: '/relatorios', icon: BarChart3, roles: ['admin', 'instrutor'] },
-  { title: 'Usuários', href: '/admin/usuarios', icon: Users, roles: ['admin'] },
+  { title: 'Turmas', href: '/admin/turmas', icon: GraduationCap, roles: ['admin'] },
   { title: 'Pelotões', href: '/admin/pelotoes', icon: Shield, roles: ['admin'] },
+  { title: 'Usuários', href: '/admin/usuarios', icon: Users, roles: ['admin'] },
 ];
 
 export function MobileSidebar() {
