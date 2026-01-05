@@ -1,19 +1,26 @@
-import { Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRBAC, ROUTE_PERMISSIONS } from '@/hooks/useRBAC';
-import { Sidebar } from './Sidebar';
-import { MobileNav, MobileHeader } from './MobileNav';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
-export function AppLayout() {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const { canAccessRoute, role } = useRBAC();
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth', { replace: true });
+      return;
+    }
+
     if (!loading && user && role) {
       const currentPath = location.pathname;
       const permission = ROUTE_PERMISSIONS[currentPath];
@@ -28,33 +35,14 @@ export function AppLayout() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return null;
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Desktop Sidebar */}
-      <Sidebar />
-      
-      {/* Mobile Header */}
-      <MobileHeader />
-      
-      {/* Main Content */}
-      <main className="lg:ml-64 pt-14 lg:pt-0 pb-20 lg:pb-0 min-h-screen">
-        <Outlet />
-      </main>
-      
-      {/* Mobile Bottom Navigation */}
-      <MobileNav />
-    </div>
-  );
+  return <>{children}</>;
 }
