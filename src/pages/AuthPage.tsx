@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -6,9 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Flame, Shield, Mail, Lock, User } from 'lucide-react';
+import { Loader2, Flame, Shield, Mail, Lock, User, Users, GraduationCap } from 'lucide-react';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
+import { Pelotao } from '@/types/database';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -20,9 +23,19 @@ const signupSchema = z.object({
   email: z.string().email('Email inválido').max(255, 'Email muito longo'),
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
   confirmPassword: z.string(),
+  role: z.enum(['aluno', 'instrutor'], { required_error: 'Selecione um perfil.' }),
+  pelotaoId: z.string().optional(),
 }).refine(data => data.password === data.confirmPassword, {
-  message: 'Senhas não coincidem',
+  message: 'As senhas não coincidem.',
   path: ['confirmPassword'],
+}).refine(data => {
+  if (data.role === 'aluno' && !data.pelotaoId) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Pelotão é obrigatório para aluno.',
+  path: ['pelotaoId'],
 });
 
 export default function AuthPage() {
@@ -39,6 +52,29 @@ export default function AuthPage() {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
+  const [signupRole, setSignupRole] = useState<'aluno' | 'instrutor' | ''>('');
+  const [signupPelotaoId, setSignupPelotaoId] = useState('');
+  
+  // Pelotoes for dropdown
+  const [pelotoes, setPelotoes] = useState<Pelotao[]>([]);
+  const [loadingPelotoes, setLoadingPelotoes] = useState(false);
+
+  useEffect(() => {
+    const fetchPelotoes = async () => {
+      setLoadingPelotoes(true);
+      const { data, error } = await supabase
+        .from('pelotoes')
+        .select('*')
+        .order('nome');
+      
+      if (!error && data) {
+        setPelotoes(data as Pelotao[]);
+      }
+      setLoadingPelotoes(false);
+    };
+    
+    fetchPelotoes();
+  }, []);
 
   if (loading) {
     return (
@@ -80,6 +116,8 @@ export default function AuthPage() {
       email: signupEmail,
       password: signupPassword,
       confirmPassword: signupConfirmPassword,
+      role: signupRole || undefined,
+      pelotaoId: signupPelotaoId || undefined,
     });
     
     if (!result.success) {
@@ -88,11 +126,19 @@ export default function AuthPage() {
     }
 
     setIsSubmitting(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupNome);
+    const { error } = await signUp(
+      signupEmail, 
+      signupPassword, 
+      signupNome,
+      signupRole as 'aluno' | 'instrutor',
+      signupRole === 'aluno' ? signupPelotaoId : undefined
+    );
     
     if (error) {
       if (error.message.includes('already registered')) {
         toast.error('Este email já está cadastrado.');
+      } else if (error.message.includes('Pelotão é obrigatório')) {
+        toast.error('Pelotão é obrigatório para alunos.');
       } else {
         toast.error('Erro ao criar conta. Tente novamente.');
       }
@@ -100,6 +146,13 @@ export default function AuthPage() {
       toast.success('Conta criada com sucesso! Faça login.');
       setActiveTab('login');
       setLoginEmail(signupEmail);
+      // Reset signup form
+      setSignupNome('');
+      setSignupEmail('');
+      setSignupPassword('');
+      setSignupConfirmPassword('');
+      setSignupRole('');
+      setSignupPelotaoId('');
     }
     setIsSubmitting(false);
   };
@@ -247,6 +300,59 @@ export default function AuthPage() {
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-role">Perfil</Label>
+                    <Select value={signupRole} onValueChange={(value) => {
+                      setSignupRole(value as 'aluno' | 'instrutor');
+                      if (value !== 'aluno') {
+                        setSignupPelotaoId('');
+                      }
+                    }}>
+                      <SelectTrigger className="w-full">
+                        <div className="flex items-center gap-2">
+                          {signupRole === 'aluno' ? (
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                          ) : signupRole === 'instrutor' ? (
+                            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                          ) : null}
+                          <SelectValue placeholder="Selecione seu perfil" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="aluno">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            <span>Aluno</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="instrutor">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4" />
+                            <span>Instrutor</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {signupRole === 'aluno' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-pelotao">Pelotão</Label>
+                      <Select value={signupPelotaoId} onValueChange={setSignupPelotaoId}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={loadingPelotoes ? "Carregando..." : "Selecione seu pelotão"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pelotoes.map((pelotao) => (
+                            <SelectItem key={pelotao.id} value={pelotao.id}>
+                              {pelotao.nome} - {pelotao.turma}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Senha</Label>
