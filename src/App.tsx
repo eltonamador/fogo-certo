@@ -23,6 +23,8 @@ import ChamadaPage from "./pages/ChamadaPage";
 import AdminUsuariosPage from "./pages/admin/UsuariosPage";
 import AdminPelotoesPage from "./pages/admin/PelotoesPage";
 import AdminTurmasPage from "./pages/admin/TurmasPage";
+import AdminRelatoriosPage from "./pages/admin/RelatoriosPage";
+import AlertasPage from "./pages/AlertasPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,9 +55,11 @@ const App = () => (
               <Route path="/configuracoes" element={<ConfiguracoesPage />} />
               <Route path="/minha-situacao" element={<MinhaSituacaoPage />} />
               <Route path="/chamada" element={<ChamadaPage />} />
+              <Route path="/alertas" element={<AlertasPage />} />
               <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
               <Route path="/admin/pelotoes" element={<AdminPelotoesPage />} />
               <Route path="/admin/turmas" element={<AdminTurmasPage />} />
+              <Route path="/admin/relatorios" element={<AdminRelatoriosPage />} />
             </Route>
 
             {/* Catch-all */}

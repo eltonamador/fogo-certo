@@ -1,20 +1,21 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Bell, 
-  Calendar, 
-  BookOpen, 
-  FileText, 
-  Users, 
-  ClipboardCheck, 
-  FileQuestion, 
-  ListTodo, 
+import {
+  Home,
+  Bell,
+  Calendar,
+  BookOpen,
+  FileText,
+  Users,
+  ClipboardCheck,
+  FileQuestion,
+  ListTodo,
   BarChart3,
   Settings,
   LogOut,
   Shield,
   GraduationCap,
-  Flame
+  Flame,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,9 +43,11 @@ const allNavItems: NavItem[] = [
   { title: 'Minha Situação', href: '/minha-situacao', icon: BarChart3, roles: ['aluno'] },
   { title: 'Chamada', href: '/chamada', icon: ClipboardCheck, roles: ['admin', 'instrutor'] },
   { title: 'Relatórios', href: '/relatorios', icon: BarChart3, roles: ['admin', 'instrutor'] },
+  { title: 'Alertas', href: '/alertas', icon: AlertCircle, roles: ['admin', 'instrutor'] },
   { title: 'Turmas', href: '/admin/turmas', icon: GraduationCap, roles: ['admin'] },
   { title: 'Pelotões', href: '/admin/pelotoes', icon: Shield, roles: ['admin'] },
   { title: 'Usuários', href: '/admin/usuarios', icon: Users, roles: ['admin'] },
+  { title: 'Relatórios Admin', href: '/admin/relatorios', icon: FileText, roles: ['admin'] },
 ];
 
 export function MobileSidebar() {

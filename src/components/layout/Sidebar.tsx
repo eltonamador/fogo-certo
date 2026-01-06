@@ -1,26 +1,28 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Bell, 
-  Calendar, 
-  BookOpen, 
-  FileText, 
-  Users, 
-  ClipboardCheck, 
-  FileQuestion, 
-  ListTodo, 
+import {
+  Home,
+  Bell,
+  Calendar,
+  BookOpen,
+  FileText,
+  Users,
+  ClipboardCheck,
+  FileQuestion,
+  ListTodo,
   BarChart3,
   Settings,
   LogOut,
   Shield,
   GraduationCap,
-  Flame
+  Flame,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { NotificationsDropdown } from '@/components/notifications/NotificationsDropdown';
 
 interface NavItem {
   title: string;
@@ -50,6 +52,8 @@ const adminNavItems: NavItem[] = [
   { title: 'Turmas', href: '/admin/turmas', icon: GraduationCap, roles: ['admin'] },
   { title: 'Pelotões', href: '/admin/pelotoes', icon: Shield, roles: ['admin'] },
   { title: 'Usuários', href: '/admin/usuarios', icon: Users, roles: ['admin'] },
+  { title: 'Alertas', href: '/alertas', icon: AlertCircle, roles: ['admin', 'instrutor'] },
+  { title: 'Relatórios Admin', href: '/admin/relatorios', icon: FileText, roles: ['admin'] },
 ];
 
 export function Sidebar() {
@@ -119,18 +123,24 @@ export function Sidebar() {
 
       {/* User Info */}
       <div className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-sidebar-accent flex items-center justify-center">
-            <RoleIcon className="h-5 w-5 text-sidebar-primary" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="h-10 w-10 rounded-full bg-sidebar-accent flex items-center justify-center">
+              <RoleIcon className="h-5 w-5 text-sidebar-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {profile?.nome || 'Usuário'}
+              </p>
+              <p className="text-xs text-sidebar-foreground/60">
+                {getRoleLabel(role)}
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {profile?.nome || 'Usuário'}
-            </p>
-            <p className="text-xs text-sidebar-foreground/60">
-              {getRoleLabel(role)}
-            </p>
-          </div>
+          {/* Widget de Notificações */}
+          {(role === 'admin' || role === 'instrutor') && (
+            <NotificationsDropdown />
+          )}
         </div>
       </div>
 

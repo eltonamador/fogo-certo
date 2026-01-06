@@ -7,6 +7,52 @@ export type PublicoAviso = 'geral' | 'pelotao' | 'disciplina';
 export type PrioridadeAviso = 'normal' | 'urgente';
 export type StatusUsuario = 'ativo' | 'inativo';
 
+// Novos tipos para perfil completo
+export type Sexo = 'Masculino' | 'Feminino' | 'Outro' | 'Prefiro não informar';
+export type TipoSanguineo = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+
+// Interfaces para dados JSONB do perfil
+export interface ContatoEmergencia {
+  nome: string;
+  parentesco: string;
+  telefone: string;
+}
+
+export interface Endereco {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento?: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}
+
+export interface FormacaoAcademica {
+  nivel: string;
+  curso: string;
+  instituicao: string;
+  ano: string;
+}
+
+export interface ExperienciaProfissional {
+  cargo: string;
+  instituicao_empresa: string;
+  periodo_inicio: string;
+  periodo_fim: string;
+  descricao?: string;
+}
+
+export interface DadosSaude {
+  doenca_cronica: boolean;
+  doenca_cronica_qual?: string;
+  alergias?: string;
+  medicamentos_uso?: string;
+  restricao_fisica?: string;
+  observacoes_medicas?: string;
+  consentimento_data: string;
+}
+
 export interface Turma {
   id: string;
   nome: string;
@@ -36,6 +82,22 @@ export interface Profile {
   matricula: string | null;
   telefone: string | null;
   status: StatusUsuario;
+
+  // Novos campos - Perfil completo
+  cpf: string | null;
+  data_nascimento: string | null;
+  sexo: Sexo | null;
+  tipo_sanguineo: TipoSanguineo | null;
+  contato_emergencia: ContatoEmergencia | null;
+  endereco: Endereco | null;
+  cursos_operacionais: string[] | null;
+  cursos_operacionais_outros: string | null;
+  formacao_academica: FormacaoAcademica[] | null;
+  experiencia_profissional: ExperienciaProfissional[] | null;
+  saude: DadosSaude | null;
+  perfil_completo: boolean;
+  perfil_completado_em: string | null;
+
   created_at: string;
   updated_at: string;
   pelotao?: Pelotao;

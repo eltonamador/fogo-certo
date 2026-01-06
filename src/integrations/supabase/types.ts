@@ -685,6 +685,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_toggle_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -695,6 +699,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      toggle_admin_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
     }
     Enums: {

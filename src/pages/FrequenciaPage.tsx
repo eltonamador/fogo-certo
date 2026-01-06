@@ -1,241 +1,345 @@
+// Este arquivo substitui FrequenciaPage.tsx - renomeie manualmente após revisar
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClipboardCheck, Download, CheckCircle2, XCircle, AlertCircle, Calendar, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ClipboardCheck, Plus, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Aula, Presenca, Disciplina, StatusPresenca } from '@/types/database';
+import { Aula, TipoAula } from '@/types/frequencia';
+import { ChamadaDialog } from '@/components/frequencia/ChamadaDialog';
 
-const statusConfig: Record<StatusPresenca, { label: string; icon: React.ReactNode; variant: 'default' | 'destructive' | 'secondary' }> = {
-  presente: { label: 'Presente', icon: <CheckCircle2 className="h-4 w-4" />, variant: 'default' },
-  ausente: { label: 'Ausente', icon: <XCircle className="h-4 w-4" />, variant: 'destructive' },
-  justificado: { label: 'Justificado', icon: <AlertCircle className="h-4 w-4" />, variant: 'secondary' },
+const TIPO_AULA_CONFIG = {
+  AULA: { label: 'Aula', variant: 'default' as const },
+  PROVA: { label: 'Prova', variant: 'destructive' as const },
+  AVALIACAO: { label: 'Avaliação', variant: 'destructive' as const },
+  SIMULADO: { label: 'Simulado', variant: 'secondary' as const },
+  ATIVIDADE_PRATICA: { label: 'Atividade Prática', variant: 'outline' as const },
+};
+
+const STATUS_AULA_CONFIG = {
+  RASCUNHO: { label: 'Rascunho', variant: 'outline' as const },
+  PUBLICADA: { label: 'Publicada', variant: 'default' as const },
+  FINALIZADA: { label: 'Finalizada', variant: 'secondary' as const },
 };
 
 export default function FrequenciaPage() {
-  const { role, user } = useAuth();
-  const [filterDisciplina, setFilterDisciplina] = useState<string>('todas');
+  const { user, role } = useAuth();
+  const queryClient = useQueryClient();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [chamadaDialogOpen, setChamadaDialogOpen] = useState(false);
+  const [selectedAula, setSelectedAula] = useState<Aula | null>(null);
+  const [filterData, setFilterData] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [filterDisciplina, setFilterDisciplina] = useState('todos');
+  const [createForm, setCreateForm] = useState({
+    disciplina_id: '',
+    pelotao_id: '',
+    data_aula: format(new Date(), 'yyyy-MM-dd'),
+    hora_inicio: '08:00',
+    hora_fim: '10:00',
+    tipo: 'AULA' as TipoAula,
+    titulo: '',
+    descricao: '',
+    local: '',
+  });
 
-  const { data: presencas, isLoading } = useQuery({
-    queryKey: ['presencas', role, user?.id],
+  const { data: aulas, isLoading: loadingAulas } = useQuery({
+    queryKey: ['aulas', filterData, filterDisciplina],
     queryFn: async () => {
       let query = supabase
-        .from('presencas')
-        .select('*, aluno:profiles(*), aula:aulas(*, disciplina:disciplinas(*))');
-      
-      if (role === 'aluno' && user) {
-        query = query.eq('aluno_id', user.id);
+        .from('aulas')
+        .select(`*,
+          disciplina:disciplinas(id, nome, codigo),
+          instrutor:profiles!aulas_instrutor_id_fkey(id, nome),
+          pelotao:pelotoes(id, nome, turma)
+        `)
+        .order('data_aula', { ascending: false });
+
+      if (role === 'instrutor') {
+        query = query.eq('instrutor_id', user!.id);
       }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (filterData) query = query.eq('data_aula', filterData);
+      if (filterDisciplina !== 'todos') query = query.eq('disciplina_id', filterDisciplina);
+
+      const { data, error } = await query;
       if (error) throw error;
-      return data as unknown as Presenca[];
+      return data as unknown as Aula[];
     },
   });
 
   const { data: disciplinas } = useQuery({
-    queryKey: ['disciplinas'],
+    queryKey: ['disciplinas-frequencia'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('disciplinas')
-        .select('*')
-        .order('nome');
-      
+      const { data, error } = await supabase.from('disciplinas').select('id, nome, codigo').order('nome');
       if (error) throw error;
-      return data as Disciplina[];
+      return data;
     },
   });
 
-  const filteredPresencas = presencas?.filter(presenca => {
-    if (filterDisciplina === 'todas') return true;
-    return presenca.aula?.disciplina_id === filterDisciplina;
+  const { data: pelotoes } = useQuery({
+    queryKey: ['pelotoes-frequencia'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pelotoes').select('id, nome, turma').order('nome');
+      if (error) throw error;
+      return data;
+    },
   });
 
-  // Calculate stats
-  const stats = {
-    total: filteredPresencas?.length || 0,
-    presentes: filteredPresencas?.filter(p => p.status === 'presente').length || 0,
-    ausentes: filteredPresencas?.filter(p => p.status === 'ausente').length || 0,
-    justificados: filteredPresencas?.filter(p => p.status === 'justificado').length || 0,
-  };
+  const createAulaMutation = useMutation({
+    mutationFn: async (data: typeof createForm) => {
+      const { data: aula, error } = await supabase.from('aulas').insert({
+        ...data,
+        instrutor_id: user!.id,
+        status: 'RASCUNHO',
+        created_by: user!.id,
+      }).select().single();
 
-  const frequenciaPercent = stats.total > 0 
-    ? ((stats.presentes + stats.justificados) / stats.total * 100).toFixed(1) 
-    : '0';
+      if (error) throw error;
 
-  const canManage = role === 'admin' || role === 'instrutor';
+      if (data.pelotao_id) {
+        const { error: presencaError } = await supabase.rpc('criar_presencas_pelotao', {
+          p_aula_id: aula.id,
+          p_pelotao_id: data.pelotao_id,
+        });
+        if (presencaError) throw presencaError;
+      }
+
+      return aula;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['aulas'] });
+      setCreateDialogOpen(false);
+      toast.success('Aula criada com sucesso!');
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao criar aula: ' + error.message);
+    },
+  });
+
+  const deleteAulaMutation = useMutation({
+    mutationFn: async (aulaId: string) => {
+      const { error } = await supabase.from('aulas').delete().eq('id', aulaId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['aulas'] });
+      toast.success('Aula excluída com sucesso!');
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao excluir aula: ' + error.message);
+    },
+  });
+
+  if (role !== 'admin' && role !== 'instrutor') {
+    return (
+      <div className="p-4 lg:p-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-muted-foreground">Acesso restrito. Apenas instrutores e administradores.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold">Frequência</h1>
-          <p className="text-muted-foreground">
-            {role === 'aluno' ? 'Seu histórico de presença' : 'Controle de presença das aulas'}
-          </p>
+          <p className="text-muted-foreground">Gestão de chamadas e presença</p>
         </div>
-        <div className="flex gap-2">
-          <Select value={filterDisciplina} onValueChange={setFilterDisciplina}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Disciplina" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas disciplinas</SelectItem>
-              {disciplinas?.map((d) => (
-                <SelectItem key={d.id} value={d.id}>{d.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {canManage && (
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar CSV
-            </Button>
-          )}
-        </div>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nova Aula/Evento
+        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Frequência</p>
-                <p className="text-2xl font-bold">{frequenciaPercent}%</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <ClipboardCheck className="h-5 w-5 text-primary" />
-              </div>
+      <Card>
+        <CardHeader><CardTitle>Filtros</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Data</Label>
+              <Input type="date" value={filterData} onChange={(e) => setFilterData(e.target.value)} />
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Presenças</p>
-                <p className="text-2xl font-bold text-success">{stats.presentes}</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5 text-success" />
-              </div>
+            <div>
+              <Label>Disciplina</Label>
+              <Select value={filterDisciplina} onValueChange={setFilterDisciplina}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas</SelectItem>
+                  {disciplinas?.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.codigo} - {d.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Ausências</p>
-                <p className="text-2xl font-bold text-destructive">{stats.ausentes}</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-                <XCircle className="h-5 w-5 text-destructive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Justificadas</p>
-                <p className="text-2xl font-bold text-warning">{stats.justificados}</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                <AlertCircle className="h-5 w-5 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Frequency Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Histórico de Presença</CardTitle>
+          <CardTitle>Aulas/Eventos</CardTitle>
+          <CardDescription>{aulas?.length || 0} aula(s) encontrada(s)</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-12 bg-muted rounded animate-pulse" />
-              ))}
-            </div>
-          ) : filteredPresencas?.length === 0 ? (
-            <div className="text-center py-12">
-              <ClipboardCheck className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum registro encontrado</h3>
-              <p className="text-muted-foreground">Os registros de presença aparecerão aqui.</p>
-            </div>
+          {loadingAulas ? (
+            <div className="text-center py-8">Carregando...</div>
+          ) : !aulas || aulas.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">Nenhuma aula encontrada</div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Aula</TableHead>
-                    <TableHead>Disciplina</TableHead>
-                    {canManage && <TableHead>Aluno</TableHead>}
-                    <TableHead>Status</TableHead>
-                    <TableHead>Observação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPresencas?.map((presenca) => {
-                    const config = statusConfig[presenca.status];
-                    return (
-                      <TableRow key={presenca.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {presenca.aula?.data_hora_inicio 
-                              ? format(new Date(presenca.aula.data_hora_inicio), "dd/MM/yyyy HH:mm", { locale: ptBR })
-                              : '-'}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data/Hora</TableHead>
+                  <TableHead>Disciplina</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Presença</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {aulas.map((aula) => (
+                  <TableRow key={aula.id}>
+                    <TableCell>
+                      <div>{format(new Date(aula.data_aula), 'dd/MM/yyyy', { locale: ptBR })}</div>
+                      <div className="text-sm text-muted-foreground">{aula.hora_inicio}</div>
+                    </TableCell>
+                    <TableCell>{aula.disciplina?.nome}</TableCell>
+                    <TableCell>{aula.titulo}</TableCell>
+                    <TableCell>
+                      <Badge variant={TIPO_AULA_CONFIG[aula.tipo].variant}>
+                        {TIPO_AULA_CONFIG[aula.tipo].label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_AULA_CONFIG[aula.status].variant}>
+                        {STATUS_AULA_CONFIG[aula.status].label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {aula.total_alunos > 0 && (
+                        <div className="text-sm">
+                          <div className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                            <span>{aula.total_presentes}</span>
                           </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {presenca.aula?.titulo || '-'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {presenca.aula?.disciplina?.nome || '-'}
-                          </Badge>
-                        </TableCell>
-                        {canManage && (
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              {presenca.aluno?.nome || '-'}
-                            </div>
-                          </TableCell>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>{aula.total_ausentes}</span>
+                          </div>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon-sm" onClick={() => { setSelectedAula(aula); setChamadaDialogOpen(true); }}>
+                          <ClipboardCheck className="h-4 w-4" />
+                        </Button>
+                        {aula.status === 'RASCUNHO' && (
+                          <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => deleteAulaMutation.mutate(aula.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
-                        <TableCell>
-                          <Badge variant={config.variant} className="gap-1">
-                            {config.icon}
-                            {config.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {presenca.observacao || '-'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Criar Nova Aula/Evento</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); createAulaMutation.mutate(createForm); }} className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Disciplina *</Label>
+                <Select value={createForm.disciplina_id} onValueChange={(v) => setCreateForm({ ...createForm, disciplina_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {disciplinas?.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.codigo} - {d.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Pelotão *</Label>
+                <Select value={createForm.pelotao_id} onValueChange={(v) => setCreateForm({ ...createForm, pelotao_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {pelotoes?.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.nome} - {p.turma}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Data *</Label>
+                <Input type="date" value={createForm.data_aula} onChange={(e) => setCreateForm({ ...createForm, data_aula: e.target.value })} />
+              </div>
+              <div>
+                <Label>Tipo *</Label>
+                <Select value={createForm.tipo} onValueChange={(v) => setCreateForm({ ...createForm, tipo: v as TipoAula })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AULA">Aula</SelectItem>
+                    <SelectItem value="PROVA">Prova</SelectItem>
+                    <SelectItem value="AVALIACAO">Avaliação</SelectItem>
+                    <SelectItem value="SIMULADO">Simulado</SelectItem>
+                    <SelectItem value="ATIVIDADE_PRATICA">Atividade Prática</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Hora Início *</Label>
+                <Input type="time" value={createForm.hora_inicio} onChange={(e) => setCreateForm({ ...createForm, hora_inicio: e.target.value })} />
+              </div>
+              <div>
+                <Label>Hora Fim</Label>
+                <Input type="time" value={createForm.hora_fim} onChange={(e) => setCreateForm({ ...createForm, hora_fim: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Título *</Label>
+              <Input value={createForm.titulo} onChange={(e) => setCreateForm({ ...createForm, titulo: e.target.value })} />
+            </div>
+            <div>
+              <Label>Descrição</Label>
+              <Textarea value={createForm.descricao} onChange={(e) => setCreateForm({ ...createForm, descricao: e.target.value })} rows={2} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit">{createAulaMutation.isPending ? 'Criando...' : 'Criar Aula'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {selectedAula && (
+        <ChamadaDialog open={chamadaDialogOpen} onClose={() => { setChamadaDialogOpen(false); setSelectedAula(null); }} aula={selectedAula} />
+      )}
     </div>
   );
 }

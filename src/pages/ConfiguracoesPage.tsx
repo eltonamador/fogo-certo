@@ -1,14 +1,25 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings, User, Bell, Moon, Shield, LogOut } from 'lucide-react';
+import { useAdminToggle } from '@/hooks/useAdminToggle';
+import { User, Bell, Moon, Shield, LogOut, ShieldCheck, Loader2, MapPin, GraduationCap, Heart, IdCard } from 'lucide-react';
+import { useEffect } from 'react';
+import { PerfilBasicoTab } from '@/components/profile/tabs/PerfilBasicoTab';
+import { DadosPessoaisTab } from '@/components/profile/tabs/DadosPessoaisTab';
+import { EnderecoTab } from '@/components/profile/tabs/EnderecoTab';
+import { FormacaoTab } from '@/components/profile/tabs/FormacaoTab';
+import { SaudeTab } from '@/components/profile/tabs/SaudeTab';
 
 export default function ConfiguracoesPage() {
   const { profile, role, signOut } = useAuth();
+  const { canToggle, isToggling, checkCanToggle, toggleAdminRole } = useAdminToggle();
+
+  useEffect(() => {
+    checkCanToggle();
+  }, [role]);
 
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
@@ -19,38 +30,53 @@ export default function ConfiguracoesPage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Profile Settings */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Perfil
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome Completo</Label>
-                <Input id="nome" defaultValue={profile?.nome || ''} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" defaultValue={profile?.email || ''} disabled />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="telefone">Telefone</Label>
-                <Input id="telefone" defaultValue={profile?.telefone || ''} placeholder="(00) 00000-0000" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="matricula">Matrícula</Label>
-                <Input id="matricula" defaultValue={profile?.matricula || ''} disabled={role === 'aluno'} />
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button>Salvar Alterações</Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Profile Settings with Tabs */}
+        <div className="lg:col-span-2">
+          <Tabs defaultValue="basico" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="basico" className="flex items-center gap-1">
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Básico</span>
+              </TabsTrigger>
+              <TabsTrigger value="pessoais" className="flex items-center gap-1">
+                <IdCard className="h-4 w-4" />
+                <span className="hidden sm:inline">Pessoais</span>
+              </TabsTrigger>
+              <TabsTrigger value="endereco" className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                <span className="hidden sm:inline">Endereço</span>
+              </TabsTrigger>
+              <TabsTrigger value="formacao" className="flex items-center gap-1">
+                <GraduationCap className="h-4 w-4" />
+                <span className="hidden sm:inline">Formação</span>
+              </TabsTrigger>
+              <TabsTrigger value="saude" className="flex items-center gap-1">
+                <Heart className="h-4 w-4" />
+                <span className="hidden sm:inline">Saúde</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basico">
+              <PerfilBasicoTab />
+            </TabsContent>
+
+            <TabsContent value="pessoais">
+              <DadosPessoaisTab />
+            </TabsContent>
+
+            <TabsContent value="endereco">
+              <EnderecoTab />
+            </TabsContent>
+
+            <TabsContent value="formacao">
+              <FormacaoTab />
+            </TabsContent>
+
+            <TabsContent value="saude">
+              <SaudeTab />
+            </TabsContent>
+          </Tabs>
+        </div>
 
         {/* Account Info */}
         <Card>
@@ -71,6 +97,32 @@ export default function ConfiguracoesPage() {
               </p>
             </div>
             <Separator />
+
+            {/* Admin Toggle Button - Only visible for bootstrap admin */}
+            {canToggle && (
+              <>
+                <Button
+                  variant={role === 'admin' ? 'outline' : 'default'}
+                  className="w-full"
+                  onClick={toggleAdminRole}
+                  disabled={isToggling}
+                >
+                  {isToggling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Alternando...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="h-4 w-4 mr-2" />
+                      {role === 'admin' ? 'Voltar para Instrutor' : 'Alternar para Admin'}
+                    </>
+                  )}
+                </Button>
+                <Separator />
+              </>
+            )}
+
             <Button variant="destructive" className="w-full" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Sair da Conta

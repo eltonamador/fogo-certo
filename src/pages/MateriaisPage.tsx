@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,10 +7,28 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Video, Link as LinkIcon, File, Search, Plus, Download, ExternalLink, Filter } from 'lucide-react';
+import { FileText, Video, Link as LinkIcon, File, Search, Plus, Download, ExternalLink, Filter, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Material, Disciplina, TipoMaterial } from '@/types/database';
+import { MaterialDialog } from '@/components/materiais/MaterialDialog';
+import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const tipoIcons: Record<TipoMaterial, React.ReactNode> = {
   pdf: <FileText className="h-5 w-5" />,
@@ -28,9 +46,14 @@ const tipoLabels: Record<TipoMaterial, string> = {
 
 export default function MateriaisPage() {
   const { role } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDisciplina, setFilterDisciplina] = useState<string>('todas');
   const [filterTipo, setFilterTipo] = useState<string>('todos');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
 
   const { data: materiais, isLoading } = useQuery({
     queryKey: ['materiais'],
@@ -68,6 +91,35 @@ export default function MateriaisPage() {
 
   const canCreate = role === 'admin' || role === 'instrutor';
 
+  const deleteMutation = useMutation({
+    mutationFn: async (materialId: string) => {
+      const { error } = await supabase.from('materiais').delete().eq('id', materialId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['materiais'] });
+      toast.success('Material excluído!');
+      setDeleteDialogOpen(false);
+      setMaterialToDelete(null);
+    },
+    onError: (error: any) => toast.error('Erro: ' + error.message),
+  });
+
+  const handleNewMaterial = () => {
+    setSelectedMaterial(null);
+    setDialogOpen(true);
+  };
+
+  const handleEditMaterial = (material: Material) => {
+    setSelectedMaterial(material);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteMaterial = (materialId: string) => {
+    setMaterialToDelete(materialId);
+    setDeleteDialogOpen(true);
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
       {/* Header */}
@@ -77,7 +129,7 @@ export default function MateriaisPage() {
           <p className="text-muted-foreground">PDFs, vídeos, links e documentos do curso</p>
         </div>
         {canCreate && (
-          <Button variant="fire">
+          <Button variant="fire" onClick={handleNewMaterial}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Material
           </Button>
@@ -149,7 +201,7 @@ export default function MateriaisPage() {
             <Card key={material.id} className="card-hover">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
-                  <div 
+                  <div
                     className="h-10 w-10 rounded-lg flex items-center justify-center"
                     style={{ backgroundColor: `${material.disciplina?.cor || '#1e3a5f'}20` }}
                   >
@@ -157,7 +209,31 @@ export default function MateriaisPage() {
                       {tipoIcons[material.tipo]}
                     </span>
                   </div>
-                  <Badge variant="outline">{tipoLabels[material.tipo]}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{tipoLabels[material.tipo]}</Badge>
+                    {canCreate && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditMaterial(material)}>
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteMaterial(material.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
                 <CardTitle className="text-lg mt-3 line-clamp-2">{material.titulo}</CardTitle>
               </CardHeader>
@@ -189,6 +265,35 @@ export default function MateriaisPage() {
           ))
         )}
       </div>
+
+      <MaterialDialog
+        open={dialogOpen}
+        onClose={() => {
+          setDialogOpen(false);
+          setSelectedMaterial(null);
+        }}
+        material={selectedMaterial}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este material? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => materialToDelete && deleteMutation.mutate(materialToDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

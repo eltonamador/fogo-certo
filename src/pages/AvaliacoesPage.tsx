@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,14 +7,23 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileQuestion, Clock, BookOpen, Plus, Play, CheckCircle2, AlertCircle, Calendar } from 'lucide-react';
+import { FileQuestion, Clock, BookOpen, Plus, Play, CheckCircle2, AlertCircle, Calendar, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import { format, isPast, isFuture } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Avaliacao, Resposta, Disciplina } from '@/types/database';
+import { AvaliacaoDialog } from '@/components/avaliacoes/AvaliacaoDialog';
+import { toast } from 'sonner';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 export default function AvaliacoesPage() {
   const { role, user } = useAuth();
+  const queryClient = useQueryClient();
   const [filterDisciplina, setFilterDisciplina] = useState<string>('todas');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedAvaliacao, setSelectedAvaliacao] = useState<Avaliacao | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [avaliacaoToDelete, setAvaliacaoToDelete] = useState<string | null>(null);
 
   const { data: avaliacoes, isLoading } = useQuery({
     queryKey: ['avaliacoes'],
@@ -77,6 +86,20 @@ export default function AvaliacoesPage() {
 
   const canCreate = role === 'admin' || role === 'instrutor';
 
+  const deleteMutation = useMutation({
+    mutationFn: async (avaliacaoId: string) => {
+      const { error } = await supabase.from('avaliacoes').delete().eq('id', avaliacaoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['avaliacoes'] });
+      toast.success('Avaliação excluída!');
+      setDeleteDialogOpen(false);
+      setAvaliacaoToDelete(null);
+    },
+    onError: (error: any) => toast.error('Erro: ' + error.message),
+  });
+
   // Stats
   const stats = {
     total: filteredAvaliacoes?.length || 0,
@@ -108,7 +131,7 @@ export default function AvaliacoesPage() {
             </SelectContent>
           </Select>
           {canCreate && (
-            <Button variant="fire">
+            <Button variant="fire" onClick={() => { setSelectedAvaliacao(null); setDialogOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Avaliação
             </Button>
@@ -252,7 +275,21 @@ export default function AvaliacoesPage() {
                         </>
                       )}
                       {canCreate && (
-                        <Button variant="outline">Ver Detalhes</Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => { setSelectedAvaliacao(avaliacao); setDialogOpen(true); }}>
+                              <Edit2 className="h-4 w-4 mr-2" />Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setAvaliacaoToDelete(avaliacao.id); setDeleteDialogOpen(true); }} className="text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" />Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </div>
                   </div>
@@ -262,6 +299,20 @@ export default function AvaliacoesPage() {
           })
         )}
       </div>
+
+      <AvaliacaoDialog open={dialogOpen} onClose={() => { setDialogOpen(false); setSelectedAvaliacao(null); }} avaliacao={selectedAvaliacao} />
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir esta avaliação?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => avaliacaoToDelete && deleteMutation.mutate(avaliacaoToDelete)} className="bg-destructive">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

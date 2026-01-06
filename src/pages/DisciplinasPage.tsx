@@ -1,15 +1,39 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Clock, Users, ChevronRight, Plus } from 'lucide-react';
+import { BookOpen, Clock, Users, ChevronRight, Plus, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Disciplina } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
+import { DisciplinaDialog } from '@/components/disciplinas/DisciplinaDialog';
+import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function DisciplinasPage() {
   const { role } = useAuth();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDisciplina, setSelectedDisciplina] = useState<Disciplina | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [disciplinaToDelete, setDisciplinaToDelete] = useState<string | null>(null);
 
   const { data: disciplinas, isLoading } = useQuery({
     queryKey: ['disciplinas'],
@@ -18,13 +42,54 @@ export default function DisciplinasPage() {
         .from('disciplinas')
         .select('*')
         .order('nome');
-      
+
       if (error) throw error;
       return data as Disciplina[];
     },
   });
 
   const canManage = role === 'admin';
+
+  // Mutation para deletar
+  const deleteMutation = useMutation({
+    mutationFn: async (disciplinaId: string) => {
+      const { error } = await supabase
+        .from('disciplinas')
+        .delete()
+        .eq('id', disciplinaId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['disciplinas'] });
+      toast.success('Disciplina excluída com sucesso!');
+      setDeleteDialogOpen(false);
+      setDisciplinaToDelete(null);
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao excluir disciplina: ' + error.message);
+    },
+  });
+
+  const handleNewDisciplina = () => {
+    setSelectedDisciplina(null);
+    setDialogOpen(true);
+  };
+
+  const handleEditDisciplina = (disciplina: Disciplina) => {
+    setSelectedDisciplina(disciplina);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteDisciplina = (disciplinaId: string) => {
+    setDisciplinaToDelete(disciplinaId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (disciplinaToDelete) {
+      deleteMutation.mutate(disciplinaToDelete);
+    }
+  };
 
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
@@ -35,7 +100,7 @@ export default function DisciplinasPage() {
           <p className="text-muted-foreground">Todas as disciplinas do curso de formação</p>
         </div>
         {canManage && (
-          <Button variant="fire">
+          <Button variant="fire" onClick={handleNewDisciplina}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Disciplina
           </Button>
@@ -70,17 +135,34 @@ export default function DisciplinasPage() {
             <Card key={disciplina.id} className="card-hover group">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
-                  <div 
+                  <div
                     className="h-10 w-10 rounded-lg flex items-center justify-center"
                     style={{ backgroundColor: `${disciplina.cor}20` }}
                   >
                     <BookOpen className="h-5 w-5" style={{ color: disciplina.cor }} />
                   </div>
-                  <Button variant="ghost" size="icon-sm" asChild className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Link to={`/disciplinas/${disciplina.id}`}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  {canManage && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon-sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditDisciplina(disciplina)}>
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteDisciplina(disciplina.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
                 <CardTitle className="text-lg mt-3">{disciplina.nome}</CardTitle>
                 <CardDescription className="line-clamp-2">
@@ -99,6 +181,36 @@ export default function DisciplinasPage() {
           ))
         )}
       </div>
+
+      {/* Dialogs */}
+      <DisciplinaDialog
+        open={dialogOpen}
+        onClose={() => {
+          setDialogOpen(false);
+          setSelectedDisciplina(null);
+        }}
+        disciplina={selectedDisciplina}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta disciplina? Esta ação não pode ser desfeita e pode afetar dados relacionados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,15 +1,17 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Bell, 
-  Calendar, 
-  BookOpen, 
+import {
+  Home,
+  Bell,
+  Calendar,
+  BookOpen,
   Menu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { MobileSidebar } from './MobileSidebar';
+import { NotificationsDropdown } from '@/components/notifications/NotificationsDropdown';
+import { useAuth } from '@/contexts/AuthContext';
 
 const mobileNavItems = [
   { title: 'Painel', href: '/dashboard', icon: Home },
@@ -66,6 +68,8 @@ export function MobileNav() {
 }
 
 export function MobileHeader() {
+  const { role } = useAuth();
+
   return (
     <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-primary z-50">
       <div className="flex items-center justify-between h-full px-4">
@@ -75,17 +79,24 @@ export function MobileHeader() {
           </div>
           <h1 className="font-display text-lg text-primary-foreground tracking-wider">CFSD</h1>
         </Link>
-        
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon-sm" className="text-primary-foreground hover:bg-primary-foreground/10">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="p-0 w-80">
-            <MobileSidebar />
-          </SheetContent>
-        </Sheet>
+
+        <div className="flex items-center gap-2">
+          {/* Widget de Notificações */}
+          {(role === 'admin' || role === 'instrutor') && (
+            <NotificationsDropdown />
+          )}
+
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon-sm" className="text-primary-foreground hover:bg-primary-foreground/10">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="p-0 w-80">
+              <MobileSidebar />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   );

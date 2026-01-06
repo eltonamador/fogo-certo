@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRBAC } from '@/hooks/useRBAC';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -19,18 +19,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
-import { Users, Search, Plus, Edit, Trash2, Shield, GraduationCap, UserCircle, AlertTriangle } from 'lucide-react';
+import { Users, Search, Plus, Edit, Trash2, Shield, GraduationCap, UserCircle, Eye } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { Profile, AppRole, Pelotao } from '@/types/database';
 import { toast } from 'sonner';
+import { ProfileView } from '@/components/admin/ProfileView';
 
 const roleConfig: Record<AppRole, { label: string; icon: React.ReactNode; variant: 'default' | 'secondary' | 'outline' }> = {
   admin: { label: 'Administrador', icon: <Shield className="h-4 w-4" />, variant: 'default' },
@@ -40,18 +42,45 @@ const roleConfig: Record<AppRole, { label: string; icon: React.ReactNode; varian
 
 export default function AdminUsuariosPage() {
   const { role: userRole, user } = useAuth();
-  const { isBootstrapAdmin } = useRBAC();
   const queryClient = useQueryClient();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('todos');
   const [filterPelotao, setFilterPelotao] = useState<string>('todos');
-  
-  // Role change dialog state
+
+  // Create user dialog
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    nome: '',
+    email: '',
+    password: '',
+    role: 'aluno' as AppRole,
+    pelotao_id: '',
+  });
+
+  // Edit user dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [editForm, setEditForm] = useState({
+    nome: '',
+    telefone: '',
+    matricula: '',
+    pelotao_id: '',
+  });
+
+  // Role change dialog
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{ id: string; nome: string; currentRole: AppRole } | null>(null);
   const [newRole, setNewRole] = useState<AppRole | ''>('');
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+
+  // Delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<Profile | null>(null);
+
+  // Profile view dialog
+  const [profileViewOpen, setProfileViewOpen] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState<string>('');
 
   if (userRole !== 'admin') {
     return <Navigate to="/dashboard" replace />;
@@ -64,7 +93,7 @@ export default function AdminUsuariosPage() {
         .from('profiles')
         .select('*, pelotao:pelotoes(*)')
         .order('nome');
-      
+
       if (error) throw error;
       return data as unknown as Profile[];
     },
@@ -76,7 +105,7 @@ export default function AdminUsuariosPage() {
       const { data, error } = await supabase
         .from('user_roles')
         .select('*');
-      
+
       if (error) throw error;
       return data;
     },
@@ -89,9 +118,96 @@ export default function AdminUsuariosPage() {
         .from('pelotoes')
         .select('*')
         .order('nome');
-      
+
       if (error) throw error;
       return data as Pelotao[];
+    },
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: async (data: typeof createForm) => {
+      const { data: result, error } = await supabase.rpc('admin_create_user', {
+        _email: data.email,
+        _password: data.password,
+        _nome: data.nome,
+        _role: data.role,
+        _pelotao_id: data.pelotao_id || null,
+      });
+
+      if (error) throw error;
+
+      // Verificar se a função retornou sucesso
+      if (result && typeof result === 'object' && 'success' in result) {
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao criar usuário');
+        }
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-roles'] });
+      toast.success('Usuário criado com sucesso!');
+      setCreateDialogOpen(false);
+      setCreateForm({ nome: '', email: '', password: '', role: 'aluno', pelotao_id: '' });
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao criar usuário: ' + error.message);
+    },
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: typeof editForm }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          nome: data.nome,
+          telefone: data.telefone,
+          matricula: data.matricula,
+          pelotao_id: data.pelotao_id || null,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
+      toast.success('Perfil atualizado com sucesso!');
+      setEditDialogOpen(false);
+      setEditingUser(null);
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao atualizar perfil: ' + error.message);
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data: result, error } = await supabase.rpc('admin_delete_user', {
+        _target_user_id: userId,
+      });
+
+      if (error) throw error;
+
+      // Verificar se a função retornou sucesso
+      if (result && typeof result === 'object' && 'success' in result) {
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao excluir usuário');
+        }
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-roles'] });
+      toast.success('Usuário excluído com sucesso!');
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao excluir usuário: ' + error.message);
     },
   });
 
@@ -101,7 +217,7 @@ export default function AdminUsuariosPage() {
         _target_user_id: userId,
         _new_role: role
       });
-      
+
       if (error) throw error;
       return data;
     },
@@ -143,6 +259,17 @@ export default function AdminUsuariosPage() {
     alunos: profiles?.filter(p => getUserRole(p.id) === 'aluno').length || 0,
   };
 
+  const handleOpenEdit = (profile: Profile) => {
+    setEditingUser(profile);
+    setEditForm({
+      nome: profile.nome,
+      telefone: profile.telefone || '',
+      matricula: profile.matricula || '',
+      pelotao_id: profile.pelotao_id || '',
+    });
+    setEditDialogOpen(true);
+  };
+
   const handleOpenRoleChange = (profile: Profile) => {
     const currentRole = getUserRole(profile.id);
     setSelectedUser({ id: profile.id, nome: profile.nome, currentRole });
@@ -162,45 +289,127 @@ export default function AdminUsuariosPage() {
     }
   };
 
-  // Get available role options based on current role
   const getAvailableRoles = (currentRole: AppRole): AppRole[] => {
     switch (currentRole) {
       case 'aluno':
-        // Aluno só pode virar instrutor
         return ['instrutor'];
       case 'instrutor':
-        // Instrutor pode virar admin ou aluno
         return ['admin', 'aluno'];
       case 'admin':
-        // Admin pode virar instrutor ou aluno
         return ['instrutor', 'aluno'];
       default:
         return [];
     }
   };
 
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.nome || !createForm.email || !createForm.password) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    if (createForm.role === 'aluno' && !createForm.pelotao_id) {
+      toast.error('Alunos devem ter um pelotão');
+      return;
+    }
+    createUserMutation.mutate(createForm);
+  };
+
+  const handleUpdateProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingUser) {
+      updateProfileMutation.mutate({ id: editingUser.id, data: editForm });
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
-      {/* Bootstrap Admin Warning */}
-      {isBootstrapAdmin && (
-        <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-center gap-3">
-          <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
-          <p className="text-sm text-warning-foreground">
-            Conta bootstrap de admin ativa. Este é o administrador inicial do sistema.
-          </p>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold">Usuários</h1>
           <p className="text-muted-foreground">Gerenciamento de usuários do sistema</p>
         </div>
-        <Button variant="fire">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Usuário
-        </Button>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="fire">
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Usuário
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar Novo Usuário</DialogTitle>
+              <DialogDescription>Adicione um novo usuário ao sistema</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div>
+                <Label htmlFor="create-nome">Nome Completo *</Label>
+                <Input
+                  id="create-nome"
+                  value={createForm.nome}
+                  onChange={(e) => setCreateForm({ ...createForm, nome: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="create-email">Email *</Label>
+                <Input
+                  id="create-email"
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="create-password">Senha *</Label>
+                <Input
+                  id="create-password"
+                  type="password"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="create-role">Papel *</Label>
+                <Select value={createForm.role} onValueChange={(v) => setCreateForm({ ...createForm, role: v as AppRole })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="aluno">Aluno</SelectItem>
+                    <SelectItem value="instrutor">Instrutor</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {createForm.role === 'aluno' && (
+                <div>
+                  <Label htmlFor="create-pelotao">Pelotão *</Label>
+                  <Select value={createForm.pelotao_id} onValueChange={(v) => setCreateForm({ ...createForm, pelotao_id: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um pelotão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pelotoes?.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.nome} - {p.turma}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
+                <Button type="submit" variant="fire" disabled={createUserMutation.isPending}>
+                  {createUserMutation.isPending ? 'Criando...' : 'Criar Usuário'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats Cards */}
@@ -341,8 +550,19 @@ export default function AdminUsuariosPage() {
                         <TableCell>{profile.matricula || '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => {
+                                setViewingUserId(profile.id);
+                                setProfileViewOpen(true);
+                              }}
+                              title="Ver perfil completo"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
                               size="icon-sm"
                               onClick={() => handleOpenRoleChange(profile)}
                               disabled={isSelf}
@@ -350,14 +570,24 @@ export default function AdminUsuariosPage() {
                             >
                               <Shield className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon-sm">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleOpenEdit(profile)}
+                              title="Editar informações"
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon-sm" 
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
                               className="text-destructive hover:text-destructive"
                               disabled={isSelf}
+                              onClick={() => {
+                                setUserToDelete(profile);
+                                setDeleteDialogOpen(true);
+                              }}
+                              title={isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir usuário'}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -373,6 +603,65 @@ export default function AdminUsuariosPage() {
         </CardContent>
       </Card>
 
+      {/* Edit Profile Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-white dark:bg-slate-900">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Editar Perfil</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Alterar informações de {editingUser?.nome}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-nome">Nome Completo</Label>
+              <Input
+                id="edit-nome"
+                value={editForm.nome}
+                onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-telefone">Telefone</Label>
+              <Input
+                id="edit-telefone"
+                value={editForm.telefone}
+                onChange={(e) => setEditForm({ ...editForm, telefone: e.target.value })}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-matricula">Matrícula</Label>
+              <Input
+                id="edit-matricula"
+                value={editForm.matricula}
+                onChange={(e) => setEditForm({ ...editForm, matricula: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-pelotao">Pelotão</Label>
+              <Select value={editForm.pelotao_id || undefined} onValueChange={(v) => setEditForm({ ...editForm, pelotao_id: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem pelotão" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pelotoes?.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.nome} - {p.turma}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={updateProfileMutation.isPending}>
+                {updateProfileMutation.isPending ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Role Change Dialog */}
       <Dialog open={roleChangeDialogOpen} onOpenChange={setRoleChangeDialogOpen}>
         <DialogContent>
@@ -382,7 +671,7 @@ export default function AdminUsuariosPage() {
               Alterar o papel de <strong>{selectedUser?.nome}</strong>
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div>
               <p className="text-sm text-muted-foreground mb-2">Papel atual:</p>
@@ -393,7 +682,7 @@ export default function AdminUsuariosPage() {
                 </Badge>
               )}
             </div>
-            
+
             <div>
               <p className="text-sm text-muted-foreground mb-2">Novo papel:</p>
               <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
@@ -411,7 +700,7 @@ export default function AdminUsuariosPage() {
                   ))}
                 </SelectContent>
               </Select>
-              
+
               {selectedUser?.currentRole === 'aluno' && (
                 <p className="text-xs text-muted-foreground mt-2">
                   Aluno não pode ser promovido diretamente a admin. Primeiro promova a instrutor.
@@ -419,12 +708,12 @@ export default function AdminUsuariosPage() {
               )}
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setRoleChangeDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleConfirmRoleChange}
               disabled={!newRole || newRole === selectedUser?.currentRole}
             >
@@ -451,7 +740,7 @@ export default function AdminUsuariosPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleExecuteRoleChange}
               disabled={changeRoleMutation.isPending}
             >
@@ -460,6 +749,42 @@ export default function AdminUsuariosPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{userToDelete?.nome}</strong>?
+              <br /><br />
+              <span className="text-destructive font-semibold">
+                Esta ação não pode ser desfeita!
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => userToDelete && deleteUserMutation.mutate(userToDelete.id)}
+              disabled={deleteUserMutation.isPending}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteUserMutation.isPending ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Profile View Dialog */}
+      <ProfileView
+        open={profileViewOpen}
+        onClose={() => {
+          setProfileViewOpen(false);
+          setViewingUserId('');
+        }}
+        userId={viewingUserId}
+      />
     </div>
   );
 }
