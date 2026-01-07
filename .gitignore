@@ -1,31 +1,17 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Dependências (sempre ignore estas pastas)
+node_modules/
+dist/
+build/
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Ficheiros de sistema
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-*.tmp
-*.bak
+Thumbs.db
+
+# Segurança (NUNCA envie as suas chaves secretas)
+.env
+*.pem
+*.key
+
+# Logs e Cache
+npm-debug.log*
+.cache/
