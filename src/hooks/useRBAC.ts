@@ -12,7 +12,6 @@ export type Permission =
   | 'view:avaliacoes'
   | 'view:tarefas'
   | 'view:minha-situacao'
-  | 'view:chamada'
   | 'view:relatorios'
   | 'view:admin-usuarios'
   | 'view:admin-turmas'
@@ -65,7 +64,6 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'view:frequencia',
     'view:avaliacoes',
     'view:tarefas',
-    'view:chamada',
     'view:relatorios',
     'create:aula',
     'edit:aula',
@@ -88,7 +86,6 @@ const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'view:frequencia',
     'view:avaliacoes',
     'view:tarefas',
-    'view:chamada',
     'view:relatorios',
     'view:admin-usuarios',
     'view:admin-turmas',
@@ -128,7 +125,6 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/avaliacoes': 'view:avaliacoes',
   '/tarefas': 'view:tarefas',
   '/minha-situacao': 'view:minha-situacao',
-  '/chamada': 'view:chamada',
   '/relatorios': 'view:relatorios',
   '/admin/usuarios': 'view:admin-usuarios',
   '/admin/turmas': 'view:admin-turmas',

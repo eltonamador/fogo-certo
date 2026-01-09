@@ -59,7 +59,7 @@ export default function FrequenciaPage() {
       let query = supabase
         .from('aulas')
         .select(`*,
-          disciplina:disciplinas(id, nome, codigo),
+          disciplina:disciplinas(id, nome),
           instrutor:profiles!aulas_instrutor_id_fkey(id, nome),
           pelotao:pelotoes(id, nome, turma)
         `)
@@ -78,12 +78,15 @@ export default function FrequenciaPage() {
     },
   });
 
-  const { data: disciplinas } = useQuery({
+  const { data: disciplinas, isLoading: disciplinasLoading, error: disciplinasError } = useQuery({
     queryKey: ['disciplinas-frequencia'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('disciplinas').select('id, nome, codigo').order('nome');
+      const { data, error } = await supabase
+        .from('disciplinas')
+        .select('id, nome')
+        .order('nome', { ascending: true });
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
   });
 
@@ -181,7 +184,7 @@ export default function FrequenciaPage() {
                 <SelectContent>
                   <SelectItem value="todos">Todas</SelectItem>
                   {disciplinas?.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>{d.codigo} - {d.nome}</SelectItem>
+                    <SelectItem key={d.id} value={d.id}>{d.nome}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -275,14 +278,24 @@ export default function FrequenciaPage() {
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <Label>Disciplina *</Label>
-                <Select value={createForm.disciplina_id} onValueChange={(v) => setCreateForm({ ...createForm, disciplina_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {disciplinas?.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.codigo} - {d.nome}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {disciplinasLoading ? (
+                  <Select disabled>
+                    <SelectTrigger><SelectValue placeholder="Carregando..." /></SelectTrigger>
+                  </Select>
+                ) : disciplinasError ? (
+                  <div className="text-sm text-destructive">Erro ao carregar disciplinas</div>
+                ) : !disciplinas || disciplinas.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Nenhuma disciplina disponível</div>
+                ) : (
+                  <Select value={createForm.disciplina_id} onValueChange={(v) => setCreateForm({ ...createForm, disciplina_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {disciplinas.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div>
                 <Label>Pelotão *</Label>

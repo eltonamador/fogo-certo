@@ -43,6 +43,36 @@ export interface ExperienciaProfissional {
   descricao?: string;
 }
 
+// Novas interfaces para as tabelas separadas
+export interface AcademicEducation {
+  id: string;
+  user_id: string;
+  nivel: 'Fundamental' | 'Médio' | 'Técnico' | 'Superior' | 'Pós-graduação' | 'Mestrado' | 'Doutorado';
+  curso: string;
+  instituicao: string;
+  situacao: 'Concluído' | 'Em andamento' | 'Trancado';
+  ano_inicio: string | null;
+  ano_conclusao: string | null;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfessionalExperience {
+  id: string;
+  user_id: string;
+  cargo: string;
+  organizacao: string;
+  tipo: 'Militar' | 'Civil' | 'Voluntário';
+  data_inicio: string;
+  data_fim: string | null;
+  local: string | null;
+  atividades: string | null;
+  competencias: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DadosSaude {
   doenca_cronica: boolean;
   doenca_cronica_qual?: string;
@@ -81,6 +111,8 @@ export interface Profile {
   avatar_url: string | null;
   matricula: string | null;
   telefone: string | null;
+  posto_graduacao: string | null;
+  nome_guerra: string | null;
   status: StatusUsuario;
 
   // Novos campos - Perfil completo
@@ -88,6 +120,10 @@ export interface Profile {
   data_nascimento: string | null;
   sexo: Sexo | null;
   tipo_sanguineo: TipoSanguineo | null;
+  estado_civil: string | null;
+  possui_cnh: boolean | null;
+  categoria_cnh: string | null;
+  lotacao: string | null;
   contato_emergencia: ContatoEmergencia | null;
   endereco: Endereco | null;
   cursos_operacionais: string[] | null;

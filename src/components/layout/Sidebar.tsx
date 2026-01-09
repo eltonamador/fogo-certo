@@ -44,7 +44,6 @@ const academicNavItems: NavItem[] = [
   { title: 'Avaliações', href: '/avaliacoes', icon: FileQuestion },
   { title: 'Tarefas', href: '/tarefas', icon: ListTodo },
   { title: 'Minha Situação', href: '/minha-situacao', icon: BarChart3, roles: ['aluno'] },
-  { title: 'Chamada', href: '/chamada', icon: ClipboardCheck, roles: ['admin', 'instrutor'] },
   { title: 'Relatórios', href: '/relatorios', icon: BarChart3, roles: ['admin', 'instrutor'] },
 ];
 

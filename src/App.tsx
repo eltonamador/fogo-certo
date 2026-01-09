@@ -19,7 +19,6 @@ import TarefasPage from "./pages/TarefasPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import ConfiguracoesPage from "./pages/ConfiguracoesPage";
 import MinhaSituacaoPage from "./pages/MinhaSituacaoPage";
-import ChamadaPage from "./pages/ChamadaPage";
 import AdminUsuariosPage from "./pages/admin/UsuariosPage";
 import AdminPelotoesPage from "./pages/admin/PelotoesPage";
 import AdminTurmasPage from "./pages/admin/TurmasPage";
@@ -54,7 +53,6 @@ const App = () => (
               <Route path="/relatorios" element={<RelatoriosPage />} />
               <Route path="/configuracoes" element={<ConfiguracoesPage />} />
               <Route path="/minha-situacao" element={<MinhaSituacaoPage />} />
-              <Route path="/chamada" element={<ChamadaPage />} />
               <Route path="/alertas" element={<AlertasPage />} />
               <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
               <Route path="/admin/pelotoes" element={<AdminPelotoesPage />} />
